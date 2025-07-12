@@ -103,6 +103,22 @@ defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$ITERM_SETTINGS_
 echo "iTerm2 will now load preferences from $ITERM_SETTINGS_DIR."
 echo "Please open iTerm2 preferences (Cmd + ,) and make a change to save current settings to this folder."
 
+# --- Conda Configuration ---
+echo "Setting up Conda configuration..."
+CONDARC_FILE="$HOME/.condarc"
+DOTFILES_CONDARC="$SCRIPT_DIR/.condarc"
+
+if [ -L "$CONDARC_FILE" ]; then
+    echo ".condarc already symlinked. Skipping."
+else
+    if [ -f "$CONDARC_FILE" ]; then
+        mv -f "$CONDARC_FILE" "$CONDARC_FILE.bak"
+        echo "Backed up existing .condarc to .condarc.bak"
+    fi
+    ln -s "$DOTFILES_CONDARC" "$CONDARC_FILE"
+    echo "Symlinked .condarc."
+fi
+
 # --- Dock Configuration ---
 echo "Adding applications to Dock..."
 
@@ -135,6 +151,4 @@ if [ -f "$HOME/.zshenv" ]; then
     mv -f "$HOME/.zshenv" "$HOME/.zshenv.bak"
     echo "Backed up existing .zshenv to .zshenv.bak"
 fi
-echo ". \"$ZDOTDIR/.zshenv\"" > "$HOME/.zshenv"
-
-echo "Setup complete. Please start a new zsh session for changes to take effect."
+echo ". "$ZDOTDIR/.zshenv"" > "$HOME/.zshenv"

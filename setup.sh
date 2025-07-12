@@ -8,6 +8,10 @@
 # DEVICE_OWNER_EMAIL="" # e.g., "john.doe@example.com"
 # ITERM_PREFS_LOCATION="" # e.g., "$HOME/Library/Mobile Documents/com~apple~CloudDocs/iTerm2"
 
+# Get the directory of the script
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+ITERM_SETTINGS_DIR="$SCRIPT_DIR/iterm2"
+
 # Prevent sleeping during script execution, as long as the machine is on AC power
 caffeinate -s -w $ &
 
@@ -32,7 +36,7 @@ fi
 sudo -v
 
 # Update existing `sudo` timestamp until script has finished
-while true; do sudo -n true; sleep 60; kill -0 "$" || exit; done 2>/dev/null &
+while true; do sudo -n true; sleep 30; kill -0 "$$" || exit; done 2>/dev/null &
 
 echo "Enable TouchID for sudo"
 sed -e 's/^#auth/auth/' /etc/pam.d/sudo_local.template | sudo tee /etc/pam.d/sudo_local
@@ -89,8 +93,8 @@ do
     fi
 done
 
-echo "Clearing existing .DS_Store files..."
-sudo find / -name ".DS_Store" -print -delete &
+# echo "Clearing existing .DS_Store files..."
+# sudo find / -name ".DS_Store" -print -delete &
 
 # --- Homebrew Installation ---
 echo "Checking for Homebrew..."
@@ -104,8 +108,6 @@ else
 fi
 
 # --- Brew Bundle Installation ---
-# Get the directory of the script to locate the Brewfile
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 echo "Installing packages from Brewfile..."
 brew bundle install -v --file="$SCRIPT_DIR/Brewfile"
 
@@ -140,11 +142,6 @@ if [ -f "$HOME/.zshenv" ]; then
     echo "Backed up existing .zshenv to .zshenv.bak"
 fi
 echo ". "$ZDOTDIR/.zshenv"" > "$HOME/.zshenv"
-
-echo "Install Oh My Zsh"
-# Do I need this if I have antidote??
-wget https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh
-ZSH="$ZDOTDIR/omz" sh install.sh
 
 # Terminal needs to be restarted to launch from new zsh, but not necessary for the remainder of this script
 
@@ -613,6 +610,8 @@ dockutil --add "/Applications/Notes.app"
 dockutil --add "/Applications/Microsoft OneNote.app"
 dockutil --add "/Applications/Music.app"
 dockutil --add "/Applications/Visual Studio Code.app"
+dockutil --add "/Applications/Spotify.app"
+
 
 # Restart QuickLook
 qlmanage -r
@@ -623,4 +622,4 @@ killall Dock SystemUIServer Finder Safari TextEdit Music Messages Photos Transmi
 # If needed for Adobe CC/Minecraft/etc.
 softwareupdate --install-rosetta --agree-to-license
 
-echo "Setup complete. Please start a new zsh session for changes to take effect.
+echo "Setup complete. Please start a new zsh session for changes to take effect."

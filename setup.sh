@@ -666,7 +666,7 @@ then
     echo "Opening GitHub Desktop, 1Password, iStatMenus"
     open -a "GitHub Desktop"
     open -a "1Password"
-    open -a $ISTAT_MENUS_SETTINGS
+    open -a "$ISTAT_MENUS_SETTINGS"
 else
     echo "Skipping further setup."
 fi

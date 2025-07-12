@@ -607,10 +607,11 @@ dockutil --add "/Applications/Slack.app"
 dockutil --add "/Applications/Mail.app"
 dockutil --add "/Applications/Reminders.app"
 dockutil --add "/Applications/Notes.app"
-dockutil --add "/Applications/Microsoft OneNote.app"
 dockutil --add "/Applications/Music.app"
 dockutil --add "/Applications/Visual Studio Code.app"
 dockutil --add "/Applications/Spotify.app"
+
+dockutil --add "$HOME/Downloads" --view grid --display stack
 
 
 # Restart QuickLook

@@ -143,6 +143,10 @@ if [ -f "$HOME/.zshenv" ]; then
 fi
 echo ". "$ZDOTDIR/.zshenv"" > "$HOME/.zshenv"
 
+echo "Bind other symlinks to .config"
+stow -v .
+
+
 # Terminal needs to be restarted to launch from new zsh, but not necessary for the remainder of this script
 
 sleep 1

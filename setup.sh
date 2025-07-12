@@ -358,6 +358,7 @@ defaults write -g AppleKeyboardUIMode -int 2
 # Mouse / Trackpad
 ################################################################################
 
+
 echo "Set trackpad speed"
 defaults write -g com.apple.trackpad.scaling -float 1
 
@@ -370,6 +371,33 @@ defaults write com.apple.AppleBluetoothMultitouchTrackpad Clicking -bool true
 echo "Make trackpad click sensitivity the lowest setting"
 defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 0
 defaults write com.apple.AppleMultitouchTrackpad SecondClickThreshold -int 0
+
+echo "Set pointer size to 2.0 (default is 1.0). A logout/login or restart may be required for this to take effect."
+defaults write com.apple.universalaccess mouseDriverCursorSize -float 2.0
+
+################################################################################
+# Mouse / Trackpad
+################################################################################
+
+echo "Set trackpad speed"
+defaults write -g com.apple.trackpad.scaling -float 1
+
+echo "Enable trackpad tap to click"
+defaults -currentHost write -g com.apple.mouse.tapBehavior -int 1
+
+defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
+defaults write com.apple.AppleBluetoothMultitouchTrackpad Clicking -bool true
+
+echo "Make trackpad click sensitivity the lowest setting"
+defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 0
+defaults write com.apple.AppleMultitouchTrackpad SecondClickThreshold -int 0
+
+echo "Set pointer size to 2.0 (default is 1.0). A logout/login or restart may be required for this to take effect."
+defaults write com.apple.universalaccess mouseDriverCursorSize -float 2.0
+
+echo "Disable mouse acceleration (may require logout/login or restart)"
+defaults write .GlobalPreferences com.apple.mouse.scaling -1
+defaults write NSGlobalDomain com.apple.mouse.linear -bool YES
 
 ################################################################################
 # TextEdit
@@ -624,3 +652,14 @@ killall Dock SystemUIServer Finder Safari TextEdit Music Messages Photos Transmi
 softwareupdate --install-rosetta --agree-to-license
 
 echo "Setup complete. Please start a new zsh session for changes to take effect."
+
+read -p "Do you want to proceed with further setup (e.g., logging into GitHub Desktop and 1Password)? (y/N) " -n 1 -r
+echo    # (optional) move to a new line
+if [[ $REPLY =~ ^[Yy]$ ]]
+then
+    echo "Opening GitHub Desktop and 1Password..."
+    open -a "GitHub Desktop"
+    open -a "1Password"
+else
+    echo "Skipping further setup."
+fi

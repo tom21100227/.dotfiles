@@ -6,11 +6,11 @@
 # SYS_USERNAME="" # This can be derived from $USER or $HOME
 # DEVICE_OWNER="" # e.g., "John Doe"
 # DEVICE_OWNER_EMAIL="" # e.g., "john.doe@example.com"
-# ITERM_PREFS_LOCATION="" # e.g., "$HOME/Library/Mobile Documents/com~apple~CloudDocs/iTerm2"
 
 # Get the directory of the script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 ITERM_SETTINGS_DIR="$SCRIPT_DIR/iterm2"
+ISTAT_MENUS_SETTINGS="$SCRIPT_DIR/istatmenus/iStat Menus Settings.ismp7"
 
 # Prevent sleeping during script execution, as long as the machine is on AC power
 caffeinate -s -w $ &
@@ -657,9 +657,10 @@ read -p "Do you want to proceed with further setup (e.g., logging into GitHub De
 echo    # (optional) move to a new line
 if [[ $REPLY =~ ^[Yy]$ ]]
 then
-    echo "Opening GitHub Desktop and 1Password..."
+    echo "Opening GitHub Desktop, 1Password, iStatMenus"
     open -a "GitHub Desktop"
     open -a "1Password"
+    open -a $ISTAT_MENUS_SETTINGS
 else
     echo "Skipping further setup."
 fi

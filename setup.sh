@@ -219,8 +219,7 @@ defaults write com.apple.CrashReporter DialogType -string "none"
 # Battery
 ################################################################################
 
-echo "Show battery percentage in menu bar"
-defaults -currentHost write com.apple.controlcenter BatteryShowPercentage -bool true
+# Not displaying battery percentage because I use iStat
 
 echo "Uncheck: Slightly dim the display on battery"
 sudo pmset -b lessbright 0
@@ -237,6 +236,9 @@ defaults -currentHost write com.apple.controlcenter Sound -int 8
 
 echo "Now Playing: Don't show in menu bar"
 defaults -currentHost write com.apple.controlcenter NowPlaying -int 8
+
+echo "Battery: Don't show in menu bar"
+defaults -currentHost write com.apple.controlcenter Battery -int 8
 
 echo "Hide Spotlight in the menu bar"
 defaults -currentHost write com.apple.Spotlight MenuItemHidden -int 1

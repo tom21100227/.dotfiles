@@ -1,5 +1,3 @@
-tap "homebrew/bundle"
-tap "homebrew/core"
 brew "jpeg-xl"
 brew "aom"
 brew "aria2"

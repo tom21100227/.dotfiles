@@ -633,17 +633,18 @@ echo "Setting up dock apps layout..."
 dockutil --remove all
 dockutil --add "/Applications/1Password.app"
 dockutil --add "/Applications/iTerm.app"
-dockutil --add "/Applications/Safari.app"
-dockutil --add "/Applications/Firefox.app"
 dockutil --add "/Applications/Arc.app"
+dockutil --add "/Applications/Firefox.app"
 dockutil --add "/Applications/Messages.app"
+dockutil --add "/Applications/WeChat.app"
 dockutil --add "/Applications/Slack.app"
 dockutil --add "/Applications/Mail.app"
 dockutil --add "/Applications/Reminders.app"
-dockutil --add "/Applications/Notes.app"
+dockutil --add "/Applications/Obsidian.app"
 dockutil --add "/Applications/Music.app"
-dockutil --add "/Applications/Visual Studio Code.app"
 dockutil --add "/Applications/Spotify.app"
+dockutil --add "/Applications/Visual Studio Code.app"
+dockutil --add "/Applications/Zed.app"
 
 dockutil --add "$HOME/Downloads" --view grid --display stack
 

@@ -722,7 +722,7 @@
 				<real>0.74613857269287109</real>
 			</dict>
 			<key>Blinking Cursor</key>
-			<true/>
+			<false/>
 			<key>Blur</key>
 			<false/>
 			<key>Bold Color</key>
@@ -1069,7 +1069,7 @@
 			<key>Screen</key>
 			<integer>-1</integer>
 			<key>Scrollback Lines</key>
-			<integer>0</integer>
+			<integer>1000</integer>
 			<key>Selected Text Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -1148,14 +1148,8 @@
 				<key>Red Component</key>
 				<real>0.70196080207824707</real>
 			</dict>
-			<key>Send Bell Alert</key>
-			<false/>
 			<key>Send Code When Idle</key>
 			<false/>
-			<key>Send Idle Alert</key>
-			<true/>
-			<key>Send New Output Alert</key>
-			<true/>
 			<key>Shortcut</key>
 			<string></string>
 			<key>Silence Bell</key>
@@ -1173,7 +1167,7 @@
 			<key>Transparency</key>
 			<real>0.0</real>
 			<key>Unlimited Scrollback</key>
-			<true/>
+			<false/>
 			<key>Use Bold Font</key>
 			<true/>
 			<key>Use Bright Bold</key>

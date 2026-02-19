@@ -9,7 +9,7 @@
 
 # Get the directory of the script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-ITERM_SETTINGS_DIR="$SCRIPT_DIR/iterm2"
+ITERM_SETTINGS_DIR="$HOME/.config/iterm2"
 ISTAT_MENUS_SETTINGS="$SCRIPT_DIR/istatmenus/iStat Menus Settings.ismp7"
 
 # Prevent sleeping during script execution, as long as the machine is on AC power
@@ -561,7 +561,8 @@ defaults write com.apple.terminal StringEncodings -array 4
 echo "Don't display the annoying prompt when quitting iTerm"
 defaults write com.googlecode.iterm2 PromptOnQuit -bool false
 
-echo "Configure iTerm2 to read preferences from iCloud"
+echo "Configure iTerm2 to read preferences from ~/.config/iterm2"
+mkdir -p "$ITERM_SETTINGS_DIR"
 defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$ITERM_SETTINGS_DIR"
 defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
 

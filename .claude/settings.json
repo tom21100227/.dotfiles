@@ -1,0 +1,20 @@
+{
+  "attribution": {
+    "commit": "With the help of Claude. ",
+    "pr": ""
+  },
+  "includeCoAuthoredBy": false,
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true,
+    "oh-my-claudecode@omc": true,
+    "github@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true
+  },
+  "alwaysThinkingEnabled": true,
+  "terminalProgressBarEnabled": true,
+  "teammateMode": "auto"
+}

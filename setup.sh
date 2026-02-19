@@ -143,6 +143,11 @@ if [ -f "$HOME/.zshenv" ]; then
 fi
 echo ". "$ZDOTDIR/.zshenv"" > "$HOME/.zshenv"
 
+echo "Set up Claude Code configuration..."
+mkdir -p "$HOME/.claude"
+ln -sf "$SCRIPT_DIR/.claude/settings.json" "$HOME/.claude/settings.json"
+ln -sf "$SCRIPT_DIR/.claude/statusline.sh" "$HOME/.claude/statusline.sh"
+
 echo "Bind other symlinks to .config"
 stow -v .
 

@@ -2,3 +2,5 @@
 .config/zed/prompts/*
 .config/zed/themes/*
 *DS_Store
+.claude/settings.local.json
+iterm2/com.googlecode.iterm2.plist

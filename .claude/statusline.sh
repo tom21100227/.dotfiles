@@ -29,9 +29,21 @@ calculate_cost() {
     local output_price=0
 
     case "$model" in
+        claude-opus-4-6*)
+            input_price=5.00
+            output_price=25.00
+            ;;
+        claude-sonnet-4-6*)
+            input_price=3.00
+            output_price=15.00
+            ;;
+        claude-haiku-4-5*)
+            input_price=1.00
+            output_price=5.00
+            ;;
         claude-opus-4-5*)
-            input_price=15.00
-            output_price=75.00
+            input_price=5.00
+            output_price=25.00
             ;;
         claude-sonnet-4-5*)
             input_price=3.00
@@ -75,7 +87,7 @@ calculate_cost() {
 
     # Format the cost
     if [ $(echo "$total_cost < 0.01" | bc) -eq 1 ]; then
-        echo "<$0.01"
+        echo "<\$0.01"
     else
         printf "$%.2f" "$total_cost"
     fi
@@ -120,9 +132,9 @@ git_info=$(get_git_info)
 # If no messages yet, show empty bar
 if [ -z "$used_percentage" ]; then
     if [ -n "$git_info" ]; then
-        echo "[          ] 0% (0/$context_size_fmt) | Cost: $0.00 | $git_info | $model_name"
+        echo "[          ] 0% (0/$context_size_fmt) | Cost: \$0.00 | $git_info | $model_name"
     else
-        echo "[          ] 0% (0/$context_size_fmt) | Cost: $0.00 | $model_name"
+        echo "[          ] 0% (0/$context_size_fmt) | Cost: \$0.00 | $model_name"
     fi
     exit 0
 fi

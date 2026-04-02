@@ -1,172 +1,287 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Claude Code status line
+# Layout: model_id | path | ctx:N% | 5h <bar> N% Xhm | 7d <bar> N% XdYhZm
+# Hard cap: 100 visible characters. Requires: jq, awk.
 
-# Read JSON input from stdin
 input=$(cat)
 
-# Extract model information
-model_name=$(echo "$input" | jq -r '.model.id // "Unknown Model"')
+# ---------------------------------------------------------------------------
+# Extract fields
+# ---------------------------------------------------------------------------
+model_id=$(echo "$input" | jq -r '.model.id // .model.display_name // "unknown"')
+current_dir=$(echo "$input" | jq -r '.workspace.current_dir // ""')
+ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
+five_reset=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+seven_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
+seven_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 
-# Extract current working directory
-cwd=$(echo "$input" | jq -r '.cwd // "."')
+# ---------------------------------------------------------------------------
+# ANSI color helpers (ANSI-C quoting)
+# ---------------------------------------------------------------------------
+C_PALE_YELLOW=$'\033[38;5;186m'
+C_SOFT_GREEN=$'\033[38;5;114m'
+C_DARK_GREY_BAR=$'\033[38;5;238m'
+C_DARK_GREY_TIME=$'\033[38;5;240m'
+C_RESET=$'\033[0m'
 
-# Extract context window information
-used_percentage=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
-total_input=$(echo "$input" | jq -r '.context_window.total_input_tokens // 0')
-total_output=$(echo "$input" | jq -r '.context_window.total_output_tokens // 0')
-context_window_size=$(echo "$input" | jq -r '.context_window.context_window_size // 0')
-
-# Calculate total tokens used
-tokens_used=$((total_input + total_output))
-
-# Calculate cost estimate based on model pricing (as of Jan 2025)
-calculate_cost() {
-    local model=$1
-    local input_tokens=$2
-    local output_tokens=$3
-
-    # Pricing per million tokens
-    local input_price=0
-    local output_price=0
-
-    case "$model" in
-        claude-opus-4-6*)
-            input_price=5.00
-            output_price=25.00
-            ;;
-        claude-sonnet-4-6*)
-            input_price=3.00
-            output_price=15.00
-            ;;
-        claude-haiku-4-5*)
-            input_price=1.00
-            output_price=5.00
-            ;;
-        claude-opus-4-5*)
-            input_price=5.00
-            output_price=25.00
-            ;;
-        claude-sonnet-4-5*)
-            input_price=3.00
-            output_price=15.00
-            ;;
-        claude-3-7-sonnet*)
-            input_price=3.00
-            output_price=15.00
-            ;;
-        claude-3-5-sonnet*)
-            input_price=3.00
-            output_price=15.00
-            ;;
-        claude-3-5-haiku*)
-            input_price=1.00
-            output_price=5.00
-            ;;
-        claude-3-opus*)
-            input_price=15.00
-            output_price=75.00
-            ;;
-        claude-3-sonnet*)
-            input_price=3.00
-            output_price=15.00
-            ;;
-        claude-3-haiku*)
-            input_price=0.25
-            output_price=1.25
-            ;;
-        *)
-            # Default to Sonnet pricing if unknown
-            input_price=3.00
-            output_price=15.00
-            ;;
-    esac
-
-    # Calculate cost in cents
-    local input_cost=$(echo "scale=4; $input_tokens * $input_price / 1000000" | bc)
-    local output_cost=$(echo "scale=4; $output_tokens * $output_price / 1000000" | bc)
-    local total_cost=$(echo "scale=2; $input_cost + $output_cost" | bc)
-
-    # Format the cost
-    if [ $(echo "$total_cost < 0.01" | bc) -eq 1 ]; then
-        echo "<\$0.01"
-    else
-        printf "$%.2f" "$total_cost"
-    fi
-}
-
-cost_estimate=$(calculate_cost "$model_name" "$total_input" "$total_output")
-
-# Format token counts in k format
-format_tokens() {
-    local tokens=$1
-    if [ "$tokens" -ge 1000 ]; then
-        echo "$((tokens / 1000))k"
-    else
-        echo "$tokens"
-    fi
-}
-
-tokens_used_fmt=$(format_tokens $tokens_used)
-context_size_fmt=$(format_tokens $context_window_size)
-
-# Get git repository and branch information
-get_git_info() {
-    cd "$cwd" 2>/dev/null || return
-
-    # Check if we're in a git repository
-    if git rev-parse --git-dir > /dev/null 2>&1; then
-        # Get the repository name (basename of the git root directory)
-        repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
-        repo_name=$(basename "$repo_root" 2>/dev/null)
-
-        # Get the current branch name
-        branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
-
-        if [ -n "$repo_name" ] && [ -n "$branch" ]; then
-            echo "$repo_name:$branch"
+# ---------------------------------------------------------------------------
+# Braille progress bar — 5 chars, 20 fill steps
+# Fill characters (index = fill level 0..4): ⠀ ⣀ ⣤ ⣶ ⣿
+# ---------------------------------------------------------------------------
+braille_bar() {
+    local pct="$1"
+    local fill
+    fill=$(awk -v p="$pct" 'BEGIN { v=int(p/100*20+0.5); if(v<0)v=0; if(v>20)v=20; print v }')
+    local bar=""
+    local remaining="$fill"
+    # Bash arrays are 0-indexed; index = fill level
+    local chars=("⠀" "⣀" "⣤" "⣶" "⣿")
+    local i level
+    for i in 1 2 3 4 5; do
+        if [ "$remaining" -ge 4 ]; then
+            level=4
+        else
+            level=$remaining
         fi
+        if [ "$level" -gt 0 ]; then
+            bar="${bar}${C_SOFT_GREEN}${chars[$level]}${C_RESET}"
+        else
+            bar="${bar}${C_DARK_GREY_BAR}${chars[0]}${C_RESET}"
+        fi
+        remaining=$(( remaining > level ? remaining - level : 0 ))
+    done
+    printf '%s' "$bar"
+}
+
+# ---------------------------------------------------------------------------
+# Reset countdown: XdYhZm, omitting leading zero units
+# ---------------------------------------------------------------------------
+format_countdown() {
+    local epoch="$1"
+    local now
+    now=$(date +%s)
+    local diff=$(( epoch - now ))
+    if [ "$diff" -le 0 ]; then
+        echo "0m"
+        return
+    fi
+    local days=$(( diff / 86400 ))
+    local hours=$(( (diff % 86400) / 3600 ))
+    local mins=$(( (diff % 3600) / 60 ))
+    if [ "$days" -gt 0 ]; then
+        echo "${days}d${hours}h${mins}m"
+    elif [ "$hours" -gt 0 ]; then
+        echo "${hours}h${mins}m"
+    else
+        echo "${mins}m"
     fi
 }
 
-git_info=$(get_git_info)
+# ---------------------------------------------------------------------------
+# Count visible characters in a string (strip ANSI, count unicode codepoints)
+# ---------------------------------------------------------------------------
+visible_len() {
+    printf '%s' "$1" | sed 's/\x1b\[[0-9;]*m//g' | wc -m | tr -d ' \n'
+}
 
-# If no messages yet, show empty bar
-if [ -z "$used_percentage" ]; then
-    if [ -n "$git_info" ]; then
-        echo "[          ] 0% (0/$context_size_fmt) | Cost: \$0.00 | $git_info | $model_name"
-    else
-        echo "[          ] 0% (0/$context_size_fmt) | Cost: \$0.00 | $model_name"
+# ---------------------------------------------------------------------------
+# Zsh-style path shortening
+# Each non-leaf component is abbreviated to the shortest prefix that
+# uniquely matches among sibling dirs. Leaf stays full. HOME -> ~.
+# If result still exceeds budget, right-truncate leaf with …
+# ---------------------------------------------------------------------------
+shorten_path() {
+    local full_path="$1"
+    local budget="$2"
+    local home="$HOME"
+
+    # Replace HOME prefix with ~
+    local display_path="${full_path/#$home/\~}"
+
+    # Fast path: already fits
+    local dlen
+    dlen=$(visible_len "$display_path")
+    if [ "$dlen" -le "$budget" ]; then
+        printf '%s' "$display_path"
+        return
     fi
-    exit 0
+
+    # Determine filesystem root for glob walks and display prefix
+    local fs_root display_prefix
+    if [[ "$full_path" == "$home"* ]]; then
+        fs_root="$home"
+        display_prefix="~"
+    elif [[ "$full_path" == /* ]]; then
+        fs_root="/"
+        display_prefix="/"
+    else
+        fs_root="."
+        display_prefix=""
+    fi
+
+    # Strip the root to get remaining path components
+    local stripped="${full_path/#$home\//}"   # strip "HOME/" if present
+    if [[ "$full_path" == "$home" ]]; then
+        # exactly $HOME
+        stripped=""
+    elif [[ "$full_path" != "$home"* ]]; then
+        stripped="${full_path#/}"
+    fi
+
+    # Split into array of components
+    IFS='/' read -ra parts <<< "$stripped"
+    local n=${#parts[@]}
+
+    if [ "$n" -le 1 ]; then
+        # Single component — just truncate if needed
+        if [ "$(visible_len "$display_path")" -gt "$budget" ] && [ "$budget" -ge 2 ]; then
+            printf '%s' "${display_path:0:$(( budget - 1 ))}…"
+        else
+            printf '%s' "$display_path"
+        fi
+        return
+    fi
+
+    # Walk all components except the last, abbreviating each
+    local abbreviated=()
+    local fs_cur="$fs_root"
+    local i
+    for (( i=0; i < n-1; i++ )); do
+        local comp="${parts[$i]}"
+        local abbrev=""
+        local j
+        for (( j=1; j<=${#comp}; j++ )); do
+            local pfx="${comp:0:$j}"
+            local mc
+            mc=$(ls -1d "${fs_cur}/${pfx}"*/ 2>/dev/null | wc -l | tr -d ' ')
+            if [ "$mc" -le 1 ]; then
+                abbrev="$pfx"
+                break
+            fi
+        done
+        [ -z "$abbrev" ] && abbrev="$comp"
+        abbreviated+=("$abbrev")
+        fs_cur="${fs_cur}/${comp}"
+        fs_cur="${fs_cur//\/\//\/}"
+    done
+
+    local leaf="${parts[$((n-1))]}"
+
+    # Reconstruct short display path
+    local short_path="$display_prefix"
+    for (( i=0; i < ${#abbreviated[@]}; i++ )); do
+        if [ -z "$short_path" ] || [[ "$short_path" == */ ]]; then
+            short_path="${short_path}${abbreviated[$i]}"
+        else
+            short_path="${short_path}/${abbreviated[$i]}"
+        fi
+    done
+    if [ -z "$short_path" ] || [[ "$short_path" == */ ]]; then
+        short_path="${short_path}${leaf}"
+    else
+        short_path="${short_path}/${leaf}"
+    fi
+    short_path="${short_path//\/\//\/}"
+
+    local slen
+    slen=$(visible_len "$short_path")
+    if [ "$slen" -le "$budget" ]; then
+        printf '%s' "$short_path"
+        return
+    fi
+
+    # Still too long — right-truncate the leaf
+    local leaf_budget=$(( budget - slen + ${#leaf} - 1 ))
+    [ "$leaf_budget" -lt 1 ] && leaf_budget=1
+    local trunc_leaf="${leaf:0:$leaf_budget}…"
+    # Replace final leaf in short_path
+    short_path="${short_path%$leaf}${trunc_leaf}"
+    printf '%s' "$short_path"
+}
+
+# ---------------------------------------------------------------------------
+# Build plain-text versions of each optional segment (for width accounting)
+# ---------------------------------------------------------------------------
+SEP=" | "
+SEP_LEN=3
+
+seg_model="$model_id"
+
+seg_ctx=""
+if [ -n "$ctx_pct" ]; then
+    seg_ctx=$(awk -v p="$ctx_pct" 'BEGIN { printf "ctx:%.0f%%", p }')
 fi
 
-# Convert to integer for calculations
-used_int=$(printf "%.0f" "$used_percentage")
-
-# Progress bar configuration
-bar_width=20
-filled_count=$((used_int * bar_width / 100))
-empty_count=$((bar_width - filled_count))
-
-# Build the progress bar
-filled=$(printf '█%.0s' $(seq 1 $filled_count))
-empty=$(printf '░%.0s' $(seq 1 $empty_count))
-
-# Color based on usage level
-if [ "$used_int" -ge 90 ]; then
-    # Red for high usage (90-100%)
-    color="\033[31m"
-elif [ "$used_int" -ge 70 ]; then
-    # Yellow for moderate usage (70-89%)
-    color="\033[33m"
-else
-    # Green for low usage (0-69%)
-    color="\033[32m"
+seg_five_plain=""
+seg_five_pct_str=""
+seg_five_countdown=""
+if [ -n "$five_pct" ] && [ -n "$five_reset" ]; then
+    seg_five_pct_str=$(awk -v p="$five_pct" 'BEGIN { printf "%.0f%%", p }')
+    seg_five_countdown=$(format_countdown "$five_reset")
+    # Plain segment: "5h " + 5 braille chars (1 col each) + " " + pct + " " + countdown
+    seg_five_plain="5h _____ ${seg_five_pct_str} ${seg_five_countdown}"
 fi
-reset="\033[0m"
 
-# Output the status line with reordered elements
-if [ -n "$git_info" ]; then
-    printf "${color}[%s%s] %d%% (%s/%s)${reset} | Cost: %s | %s | %s\n" "$filled" "$empty" "$used_int" "$tokens_used_fmt" "$context_size_fmt" "$cost_estimate" "$git_info" "$model_name"
-else
-    printf "${color}[%s%s] %d%% (%s/%s)${reset} | Cost: %s | %s\n" "$filled" "$empty" "$used_int" "$tokens_used_fmt" "$context_size_fmt" "$cost_estimate" "$model_name"
+seg_seven_plain=""
+seg_seven_pct_str=""
+seg_seven_countdown=""
+if [ -n "$seven_pct" ] && [ -n "$seven_reset" ]; then
+    seg_seven_pct_str=$(awk -v p="$seven_pct" 'BEGIN { printf "%.0f%%", p }')
+    seg_seven_countdown=$(format_countdown "$seven_reset")
+    seg_seven_plain="7d _____ ${seg_seven_pct_str} ${seg_seven_countdown}"
 fi
+
+# ---------------------------------------------------------------------------
+# Budget calculation
+# Fixed width = model + ctx + five + seven + separators
+# Remaining goes to path (floor 8)
+# ---------------------------------------------------------------------------
+len_model=$(visible_len "$seg_model")
+len_ctx=0
+[ -n "$seg_ctx" ] && len_ctx=$(visible_len "$seg_ctx")
+
+# Each rate-limit segment: "5h " (3) + bar (5 cols) + " " (1) + pct + " " (1) + countdown
+len_five=0
+if [ -n "$seg_five_plain" ]; then
+    len_five=$(( 3 + 5 + 1 + ${#seg_five_pct_str} + 1 + ${#seg_five_countdown} ))
+fi
+len_seven=0
+if [ -n "$seg_seven_plain" ]; then
+    len_seven=$(( 3 + 5 + 1 + ${#seg_seven_pct_str} + 1 + ${#seg_seven_countdown} ))
+fi
+
+num_seps=1   # always: model | path
+[ -n "$seg_ctx" ]         && num_seps=$(( num_seps + 1 ))
+[ -n "$seg_five_plain" ]  && num_seps=$(( num_seps + 1 ))
+[ -n "$seg_seven_plain" ] && num_seps=$(( num_seps + 1 ))
+
+fixed_width=$(( len_model + len_ctx + len_five + len_seven + num_seps * SEP_LEN ))
+path_budget=$(( 100 - fixed_width ))
+[ "$path_budget" -lt 8 ] && path_budget=8
+
+# ---------------------------------------------------------------------------
+# Shorten the path to budget
+# ---------------------------------------------------------------------------
+short_path=$(shorten_path "$current_dir" "$path_budget")
+
+# ---------------------------------------------------------------------------
+# Assemble final output with colors
+# ---------------------------------------------------------------------------
+out="${seg_model}${SEP}${short_path}"
+
+if [ -n "$seg_ctx" ]; then
+    out="${out}${SEP}${C_PALE_YELLOW}${seg_ctx}${C_RESET}"
+fi
+
+if [ -n "$seg_five_plain" ]; then
+    bar5=$(braille_bar "$five_pct")
+    out="${out}${SEP}5h ${bar5} ${seg_five_pct_str} ${C_DARK_GREY_TIME}${seg_five_countdown}${C_RESET}"
+fi
+
+if [ -n "$seg_seven_plain" ]; then
+    bar7=$(braille_bar "$seven_pct")
+    out="${out}${SEP}7d ${bar7} ${seg_seven_pct_str} ${C_DARK_GREY_TIME}${seg_seven_countdown}${C_RESET}"
+fi
+
+printf '%s' "$out"

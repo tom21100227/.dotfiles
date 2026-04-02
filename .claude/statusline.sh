@@ -26,21 +26,21 @@ C_DARK_GREY_TIME=$'\033[38;5;240m'
 C_RESET=$'\033[0m'
 
 # ---------------------------------------------------------------------------
-# Braille progress bar — 5 chars, 20 fill steps
-# Fill characters (index = fill level 0..4): ⠀ ⣀ ⣤ ⣶ ⣿
+# Braille progress bar — 5 chars, 40 fill steps (8 per char)
+# Left column first (bottom-up), then right column (bottom-up):
+# ⠀ ⡀ ⡄ ⡆ ⡇ ⣇ ⣧ ⣷ ⣿
 # ---------------------------------------------------------------------------
 braille_bar() {
     local pct="$1"
     local fill
-    fill=$(awk -v p="$pct" 'BEGIN { v=int(p/100*20+0.5); if(v<0)v=0; if(v>20)v=20; print v }')
+    fill=$(awk -v p="$pct" 'BEGIN { v=int(p/100*40+0.5); if(v<0)v=0; if(v>40)v=40; print v }')
     local bar=""
     local remaining="$fill"
-    # Bash arrays are 0-indexed; index = fill level
-    local chars=("⠀" "⣀" "⣤" "⣶" "⣿")
+    local chars=("⠀" "⡀" "⡄" "⡆" "⡇" "⣇" "⣧" "⣷" "⣿")
     local i level
     for i in 1 2 3 4 5; do
-        if [ "$remaining" -ge 4 ]; then
-            level=4
+        if [ "$remaining" -ge 8 ]; then
+            level=8
         else
             level=$remaining
         fi

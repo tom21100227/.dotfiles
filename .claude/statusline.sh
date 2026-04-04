@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code status line
-# Layout: model_id | path | ctx:N% | 5h <bar> N% Xhm | 7d <bar> N% XdYhZm
+# Layout: model_id | path | ctx <bar> N% | 5h <bar> N% Xhm | 7d <bar> N% XdYhZm
 # Hard cap: 100 visible characters. Requires: jq, awk.
 
 input=$(cat)
@@ -8,7 +8,8 @@ input=$(cat)
 # ---------------------------------------------------------------------------
 # Extract fields
 # ---------------------------------------------------------------------------
-model_id=$(echo "$input" | jq -r '.model.id // .model.display_name // "unknown"')
+model_id=$(echo "$input" | jq -r '.model.id // .model.display_name // "unknown"' | sed 's/^claude-//')
+ctx_window=$(echo "$input" | jq -r '.context_window.context_window_size // 200000')
 current_dir=$(echo "$input" | jq -r '.workspace.current_dir // ""')
 ctx_pct=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 five_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
@@ -21,6 +22,8 @@ seven_reset=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
 # ---------------------------------------------------------------------------
 C_PALE_YELLOW=$'\033[38;5;186m'
 C_SOFT_GREEN=$'\033[38;5;114m'
+C_SOFT_YELLOW=$'\033[38;5;221m'
+C_SOFT_RED=$'\033[38;5;203m'
 C_DARK_GREY_BAR=$'\033[38;5;238m'
 C_DARK_GREY_TIME=$'\033[38;5;240m'
 C_RESET=$'\033[0m'
@@ -29,9 +32,11 @@ C_RESET=$'\033[0m'
 # Braille progress bar — 5 chars, 40 fill steps (8 per char)
 # Left column first (bottom-up), then right column (bottom-up):
 # ⠀ ⡀ ⡄ ⡆ ⡇ ⣇ ⣧ ⣷ ⣿
+# $1 = percentage (0-100), $2 = optional fill color override
 # ---------------------------------------------------------------------------
 braille_bar() {
     local pct="$1"
+    local fill_color="${2:-$C_SOFT_GREEN}"
     local fill
     fill=$(awk -v p="$pct" 'BEGIN { v=int(p/100*40+0.5); if(v<0)v=0; if(v>40)v=40; print v }')
     local bar=""
@@ -45,7 +50,7 @@ braille_bar() {
             level=$remaining
         fi
         if [ "$level" -gt 0 ]; then
-            bar="${bar}${C_SOFT_GREEN}${chars[$level]}${C_RESET}"
+            bar="${bar}${fill_color}${chars[$level]}${C_RESET}"
         else
             bar="${bar}${C_DARK_GREY_BAR}${chars[0]}${C_RESET}"
         fi
@@ -208,9 +213,37 @@ SEP_LEN=3
 
 seg_model="$model_id"
 
+# ---------------------------------------------------------------------------
+# Pick color for a bar given percentage and yellow/red thresholds
+# ---------------------------------------------------------------------------
+bar_color() {
+    local pct="$1"
+    local yellow_thresh="$2"
+    local red_thresh="$3"
+    if awk -v p="$pct" -v r="$red_thresh" 'BEGIN { exit !(p >= r) }'; then
+        printf '%s' "$C_SOFT_RED"
+    elif awk -v p="$pct" -v y="$yellow_thresh" 'BEGIN { exit !(p >= y) }'; then
+        printf '%s' "$C_SOFT_YELLOW"
+    else
+        printf '%s' "$C_SOFT_GREEN"
+    fi
+}
+
 seg_ctx=""
+seg_ctx_plain=""
 if [ -n "$ctx_pct" ]; then
-    seg_ctx=$(awk -v p="$ctx_pct" 'BEGIN { printf "ctx:%.0f%%", p }')
+    ctx_pct_str=$(awk -v p="$ctx_pct" 'BEGIN { printf "%.0f%%", p }')
+    # Thresholds differ by context window size:
+    #   1M+ models: yellow @ 20%, red @ 50%
+    #   200K models: yellow @ 80%, red @ 90%
+    ctx_yellow=80
+    ctx_red=90
+    if awk -v w="$ctx_window" 'BEGIN { exit !(w >= 500000) }'; then
+        ctx_yellow=20
+        ctx_red=50
+    fi
+    seg_ctx="non-empty"   # marker; rendered below with color
+    seg_ctx_plain="ctx _____ ${ctx_pct_str}"
 fi
 
 seg_five_plain=""
@@ -239,7 +272,10 @@ fi
 # ---------------------------------------------------------------------------
 len_model=$(visible_len "$seg_model")
 len_ctx=0
-[ -n "$seg_ctx" ] && len_ctx=$(visible_len "$seg_ctx")
+# ctx segment: "ctx " (4) + bar (5 cols) + " " (1) + pct_str
+if [ -n "$seg_ctx" ]; then
+    len_ctx=$(( 4 + 5 + 1 + ${#ctx_pct_str} ))
+fi
 
 # Each rate-limit segment: "5h " (3) + bar (5 cols) + " " (1) + pct + " " (1) + countdown
 len_five=0
@@ -271,17 +307,21 @@ short_path=$(shorten_path "$current_dir" "$path_budget")
 out="${seg_model}${SEP}${short_path}"
 
 if [ -n "$seg_ctx" ]; then
-    out="${out}${SEP}${C_PALE_YELLOW}${seg_ctx}${C_RESET}"
+    ctx_col=$(bar_color "$ctx_pct" "$ctx_yellow" "$ctx_red")
+    bar_ctx=$(braille_bar "$ctx_pct" "$ctx_col")
+    out="${out}${SEP}ctx ${bar_ctx} ${ctx_col}${ctx_pct_str}${C_RESET}"
 fi
 
 if [ -n "$seg_five_plain" ]; then
-    bar5=$(braille_bar "$five_pct")
-    out="${out}${SEP}5h ${bar5} ${seg_five_pct_str} ${C_DARK_GREY_TIME}${seg_five_countdown}${C_RESET}"
+    five_col=$(bar_color "$five_pct" 50 80)
+    bar5=$(braille_bar "$five_pct" "$five_col")
+    out="${out}${SEP}5h ${bar5} ${five_col}${seg_five_pct_str}${C_RESET} ${C_DARK_GREY_TIME}${seg_five_countdown}${C_RESET}"
 fi
 
 if [ -n "$seg_seven_plain" ]; then
-    bar7=$(braille_bar "$seven_pct")
-    out="${out}${SEP}7d ${bar7} ${seg_seven_pct_str} ${C_DARK_GREY_TIME}${seg_seven_countdown}${C_RESET}"
+    seven_col=$(bar_color "$seven_pct" 50 80)
+    bar7=$(braille_bar "$seven_pct" "$seven_col")
+    out="${out}${SEP}7d ${bar7} ${seven_col}${seg_seven_pct_str}${C_RESET} ${C_DARK_GREY_TIME}${seg_seven_countdown}${C_RESET}"
 fi
 
 printf '%s' "$out"

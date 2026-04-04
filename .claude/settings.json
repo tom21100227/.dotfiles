@@ -17,7 +17,8 @@
     "github@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "pheno@pheno-claude-plugins": true,
-    "codex@openai-codex": true
+    "codex@openai-codex": true,
+    "clangd-lsp@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
     "pheno-claude-plugins": {

@@ -57,10 +57,19 @@ backup_if_conflict "$HOME/.claude/statusline.sh"
 backup_if_conflict "$HOME/.condarc"
 
 # --- stow the dotfiles into $HOME -----------------------------------------
-stow_args=(-v -t "$HOME")
-[ "$DRY_RUN" = "1" ] && stow_args=(-n "${stow_args[@]}")
-echo "Stowing dotfiles${DRY_RUN:+ (dry-run)}..."
-( cd "$DOTFILES_DIR" && stow "${stow_args[@]}" . )
+if ! command -v stow &>/dev/null; then
+    if [ "$DRY_RUN" = "1" ]; then
+        echo "[dry-run] stow not installed yet; would stow $DOTFILES_DIR -> $HOME"
+    else
+        echo "ERROR: stow is not installed" >&2
+        exit 1
+    fi
+else
+    stow_args=(-v -t "$HOME")
+    [ "$DRY_RUN" = "1" ] && stow_args=(-n "${stow_args[@]}")
+    echo "Stowing dotfiles${DRY_RUN:+ (dry-run)}..."
+    ( cd "$DOTFILES_DIR" && stow "${stow_args[@]}" . )
+fi
 
 # --- ensure zsh is a registered login shell and set as default ------------
 if ! grep -qxF "$ZSH_BIN" /etc/shells; then

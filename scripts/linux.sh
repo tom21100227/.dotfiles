@@ -117,7 +117,9 @@ else
 fi
 
 # --- hand off to common steps (zdotdir, .zshenv, stow, chsh) --------------
-export ZSH_BIN="$(command -v zsh)"
+# In dry-run, zsh hasn't actually been installed — fall back to its
+# eventual path so common.sh's ZSH_BIN guard doesn't fail.
+export ZSH_BIN="$(command -v zsh || echo /usr/bin/zsh)"
 source "$DOTFILES_DIR/scripts/common.sh"
 
 echo

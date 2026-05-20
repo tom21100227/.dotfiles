@@ -1,0 +1,38 @@
+name: setup-linux
+
+on:
+  push:
+    paths:
+      - "setup.sh"
+      - "scripts/**"
+      - ".github/workflows/setup-linux.yml"
+  pull_request:
+    paths:
+      - "setup.sh"
+      - "scripts/**"
+      - ".github/workflows/setup-linux.yml"
+  workflow_dispatch:
+
+jobs:
+  dry-run:
+    name: dry-run on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Last 3 LTS releases. ubuntu-26.04 may not be available as a hosted
+        # runner image yet; the job will surface that as "no runner" so we
+        # know when to drop the fallback.
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: |
+          bash -n setup.sh
+          for f in scripts/*.sh; do bash -n "$f"; done
+
+      - name: Dry-run setup.sh
+        env:
+          DRY_RUN: "1"
+        run: bash setup.sh

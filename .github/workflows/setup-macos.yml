@@ -1,0 +1,42 @@
+name: setup-macos
+
+on:
+  push:
+    paths:
+      - "setup.sh"
+      - "scripts/macos.sh"
+      - "scripts/common.sh"
+      - "Brewfile"
+      - ".github/workflows/setup-macos.yml"
+  pull_request:
+    paths:
+      - "setup.sh"
+      - "scripts/macos.sh"
+      - "scripts/common.sh"
+      - "Brewfile"
+      - ".github/workflows/setup-macos.yml"
+  workflow_dispatch:
+
+# Cheap pre-flight check: just verifies that the scripts parse and that
+# every Brewfile entry resolves. No `brew bundle install` — that costs CI
+# minutes and the macOS runner is ~10x Linux. For a full install-and-stow
+# run, use a manually-triggered workflow.
+jobs:
+  check:
+    name: syntax + brewfile resolve
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: |
+          bash -n setup.sh
+          bash -n scripts/macos.sh
+          bash -n scripts/common.sh
+
+      - name: Brewfile parse
+        # Catches malformed Brewfile lines. Doesn't verify that every
+        # formula resolves — that would mean hitting the brew API per
+        # entry, which is slow and flaky. A real `brew bundle install`
+        # belongs in a manually-triggered workflow.
+        run: brew bundle list --file=Brewfile >/dev/null

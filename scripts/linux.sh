@@ -71,8 +71,24 @@ APT_PKGS=(
 echo "Updating apt..."
 sudo apt-get update
 
+# Some packages aren't in every supported LTS apt repo (e.g. tealdeer landed
+# in noble). Prune anything without a real Candidate so the install step
+# doesn't fail on older releases.
+skipped=()
+for i in "${!APT_PKGS[@]}"; do
+    pkg="${APT_PKGS[$i]}"
+    if ! apt-cache policy "$pkg" 2>/dev/null | grep -q 'Candidate: [^(]'; then
+        skipped+=("$pkg")
+        unset 'APT_PKGS[i]'
+    fi
+done
+APT_PKGS=("${APT_PKGS[@]}")
+if [ ${#skipped[@]} -gt 0 ]; then
+    echo "Skipping (no apt candidate on $(lsb_release -cs)): ${skipped[*]}"
+fi
+
 if [ "$DRY_RUN" = "1" ]; then
-    echo "Validating apt packages (dry-run)..."
+    echo "Validating ${#APT_PKGS[@]} apt packages (dry-run)..."
     sudo apt-get install --dry-run -y "${APT_PKGS[@]}" >/dev/null
     echo "All ${#APT_PKGS[@]} apt packages resolved successfully."
 else

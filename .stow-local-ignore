@@ -1,5 +1,7 @@
 .git
+.gitignore
 Brewfile
 istatmenus
 iterm2
+scripts
 setup.sh

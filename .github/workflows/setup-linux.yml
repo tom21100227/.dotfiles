@@ -1,0 +1,39 @@
+name: setup-linux
+
+on:
+  push:
+    paths:
+      - "setup.sh"
+      - "scripts/**"
+      - ".github/workflows/setup-linux.yml"
+  pull_request:
+    paths:
+      - "setup.sh"
+      - "scripts/**"
+      - ".github/workflows/setup-linux.yml"
+  workflow_dispatch:
+
+jobs:
+  dry-run:
+    name: dry-run on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Supported LTS. ubuntu-26.04 isn't a hosted runner image yet —
+        # add it when GitHub publishes one (queue-timeout is 15 min, no
+        # way to shorten it). Tracking:
+        # https://github.com/actions/runner-images
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Syntax check
+        run: |
+          bash -n setup.sh
+          for f in scripts/*.sh; do bash -n "$f"; done
+
+      - name: Dry-run setup.sh
+        env:
+          DRY_RUN: "1"
+        run: bash setup.sh

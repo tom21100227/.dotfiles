@@ -14,6 +14,12 @@ bold-is-bright = true
 # Option key (iTerm: left = Esc+, right = normal)
 macos-option-as-alt = left
 
+# Hide pointer while typing (iTerm parity)
+mouse-hide-while-typing = true
+
+# Global dropdown terminal (iTerm hotkey-window equivalent)
+keybind = global:cmd+grave_accent=toggle_quick_terminal
+
 # Effectively unlimited scrollback (iTerm had unlimited)
 scrollback-limit = 100000000
 

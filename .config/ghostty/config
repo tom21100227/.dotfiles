@@ -20,6 +20,9 @@ mouse-hide-while-typing = true
 # Global dropdown terminal (iTerm hotkey-window equivalent)
 keybind = global:cmd+grave_accent=toggle_quick_terminal
 
+# Manually toggle mouse reporting on/off (hold Shift to bypass it ad hoc)
+keybind = cmd+shift+m=toggle_mouse_reporting
+
 # Effectively unlimited scrollback (iTerm had unlimited)
 scrollback-limit = 100000000
 

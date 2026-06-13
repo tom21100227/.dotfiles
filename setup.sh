@@ -9,11 +9,10 @@
 
 # Get the directory of the script
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-ITERM_SETTINGS_DIR="$HOME/.config/iterm2"
 ISTAT_MENUS_SETTINGS="$SCRIPT_DIR/istatmenus/iStat Menus Settings.ismp7"
 
 # Prevent sleeping during script execution, as long as the machine is on AC power
-caffeinate -s -w $ &
+caffeinate -s -w $$ &
 
 # Attempt to list the contents of a directory that requires full disk access
 check_full_disk_access() {
@@ -49,7 +48,9 @@ killall Dock
 killall SystemUIServer
 
 echo "Closing any open apps that we're about to change..."
-apps=("Finder" "Safari" "TextEdit" "Music" "Messages" "Photos" "Transmission" "Hazel" "QLMarkdown" "HandBrake" "IINA" "VLC" "iTerm" "ProtonVPN" "Keka" "Downie 4" "The Unarchiver" "UTC Time" "Pure Paste")
+# Note: the terminal running this script is intentionally NOT listed here — we
+# no longer set terminal `defaults`, and killing it would kill this script.
+apps=("Finder" "Safari" "TextEdit" "Music" "Messages" "Photos" "Transmission" "Hazel" "QLMarkdown" "HandBrake" "IINA" "VLC" "ProtonVPN" "Keka" "Downie 4" "The Unarchiver" "UTC Time" "Pure Paste")
 
 for app in "${apps[@]}"; do
     if pgrep -x "$app" > /dev/null; then
@@ -69,8 +70,7 @@ else
   echo "Xcode Command Line Tools are already installed."
 fi
 
-echo "Wait for the xcode-select GUI installer and press enter. XCode command-line tools are required"
-sudo xcodebuild -license accept
+echo "Wait for the xcode-select GUI installer to finish. XCode command-line tools are required."
 
 # Loop until the tools are successfully installed and the license is accepted
 while :
@@ -113,9 +113,19 @@ brew bundle install -v --file="$SCRIPT_DIR/Brewfile"
 
 sleep 3
 
+# --- GitHub CLI authentication ---
+# This dotfiles repo (and the zdotdir repo) are public and cloned over HTTPS, so
+# no auth is needed to bootstrap. This step just sets up gh/git for everyday use.
+echo "Authenticating the GitHub CLI..."
+if gh auth status &>/dev/null; then
+  echo "GitHub CLI is already authenticated."
+else
+  gh auth login --hostname github.com --git-protocol https --web
+fi
+
 echo "Make Homebrew's version of zsh the default shell"
 # Append brew's zsh install to the list of acceptable shells for chpass(1)
-if ! fgrep -q '/opt/homebrew/bin/zsh' /etc/shells; then
+if ! grep -qF '/opt/homebrew/bin/zsh' /etc/shells; then
   echo '/opt/homebrew/bin/zsh' | sudo tee -a /etc/shells
 fi
 # Change default shell to brew's zsh
@@ -167,7 +177,7 @@ sleep 1
 echo "Set up .nanorc..."
 rm -rf "$HOME/.nanorc"
 echo 'set linenumbers' >> "$HOME/.nanorc"
-echo 'include "'""$(brew --cellar nano)""'/opt/homebrew/Cellar/nano/*/share/nano/*.nanorc"' >> "$HOME/.nanorc"
+echo 'include "'"$(brew --cellar nano)"'/*/share/nano/*.nanorc"' >> "$HOME/.nanorc"
 
 ################################################################################
 # Time and date
@@ -203,7 +213,6 @@ defaults write -g NSNavPanelExpandedStateForSaveMode2 -bool true
 echo "Expand the print pane by default"
 defaults write -g PMPrintingExpandedStateForPrint -bool true
 defaults write -g PMPrintingExpandedStateForPrint2 -bool true
-ick -string "None"
 
 echo "Automatically quit printer app once the print jobs complete"
 defaults write com.apple.print.PrintingPrefs "Quit When Finished" -bool true
@@ -386,26 +395,6 @@ defaults write com.apple.AppleMultitouchTrackpad SecondClickThreshold -int 0
 echo "Set pointer size to 2.0 (default is 1.0). A logout/login or restart may be required for this to take effect."
 defaults write com.apple.universalaccess mouseDriverCursorSize -float 2.0
 
-################################################################################
-# Mouse / Trackpad
-################################################################################
-
-echo "Set trackpad speed"
-defaults write -g com.apple.trackpad.scaling -float 1
-
-echo "Enable trackpad tap to click"
-defaults -currentHost write -g com.apple.mouse.tapBehavior -int 1
-
-defaults write com.apple.AppleMultitouchTrackpad Clicking -bool true
-defaults write com.apple.AppleBluetoothMultitouchTrackpad Clicking -bool true
-
-echo "Make trackpad click sensitivity the lowest setting"
-defaults write com.apple.AppleMultitouchTrackpad FirstClickThreshold -int 0
-defaults write com.apple.AppleMultitouchTrackpad SecondClickThreshold -int 0
-
-echo "Set pointer size to 2.0 (default is 1.0). A logout/login or restart may be required for this to take effect."
-defaults write com.apple.universalaccess mouseDriverCursorSize -float 2.0
-
 echo "Disable mouse acceleration (may require logout/login or restart)"
 defaults write .GlobalPreferences com.apple.mouse.scaling -1
 defaults write NSGlobalDomain com.apple.mouse.linear -bool YES
@@ -552,19 +541,14 @@ echo "Don't show auto rearranging note checklist warning"
 defaults write com.apple.Notes AutoSortChecklistAlertShown -bool true
 
 ################################################################################
-# Terminal / iTerm2
+# Terminal
+#
+# Ghostty is the daily terminal; its config lives in ~/.config/ghostty (stowed),
+# so no `defaults` are needed here.
 ################################################################################
 
 echo "Only use UTF-8 in Terminal.app"
 defaults write com.apple.terminal StringEncodings -array 4
-
-echo "Don't display the annoying prompt when quitting iTerm"
-defaults write com.googlecode.iterm2 PromptOnQuit -bool false
-
-echo "Configure iTerm2 to read preferences from ~/.config/iterm2"
-mkdir -p "$ITERM_SETTINGS_DIR"
-defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$ITERM_SETTINGS_DIR"
-defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
 
 ################################################################################
 # The Unarchiver
@@ -582,11 +566,9 @@ defaults write com.sindresorhus.UTC-Time showUTCText -bool false
 # Tracking
 ################################################################################
 
-echo "Tell IINA, VLC, Hazel, The Unarchiver, ProtonVPN, QLMarkdown, HandBrake, and iTerm2 to not send anonymous system profile"
-# TODO: Review - Disables anonymous system profile sending for various applications.
+echo "Tell IINA and VLC to not send anonymous system profile"
 defaults write com.colliderli.iina SUSendProfileInfo -bool false
 defaults write org.videolan.vlc SUSendProfileInfo -bool false
-defaults write com.googlecode.iterm2 SUSendProfileInfo -bool false
 
 ################################################################################
 # Updates
@@ -604,15 +586,13 @@ defaults write com.apple.commerce AutoUpdate -bool true
 echo "Update extensions automatically in Safari"
 defaults write com.apple.Safari InstallExtensionUpdatesAutomatically -bool true
 
-echo "Tell IINA, VLC, Hazel, The Unarchiver, QLMarkdown, HandBrake, Downie 4, Keka, and iTerm2 to check for updates automatically"
+echo "Tell IINA and VLC to check for updates automatically"
 defaults write com.colliderli.iina SUEnableAutomaticChecks -bool true
 defaults write org.videolan.vlc SUEnableAutomaticChecks -bool true
-defaults write com.googlecode.iterm2 SUEnableAutomaticChecks -bool true
 
-echo "Turn on auto-update in IINA, VLC, ProtonVPN, QLMarkdown, Downie 4, Keka, and iTerm2"
+echo "Turn on auto-update in IINA and VLC"
 defaults write com.colliderli.iina SUAutomaticallyUpdate -bool true
 defaults write org.videolan.vlc SUAutomaticallyUpdate -bool true
-defaults write com.googlecode.iterm2 SUAutomaticallyUpdate -bool true
 
 echo "Disable guest sign-in from login screen"
 sudo defaults write /Library/Preferences/com.apple.loginwindow GuestEnabled -bool false
@@ -638,7 +618,7 @@ echo "Setting up dock apps layout..."
 # Clear existing
 dockutil --remove all
 dockutil --add "/Applications/1Password.app"
-dockutil --add "/Applications/iTerm.app"
+dockutil --add "/Applications/Ghostty.app"
 dockutil --add "/Applications/Arc.app"
 dockutil --add "/Applications/Firefox.app"
 dockutil --add "/Applications/Messages.app"

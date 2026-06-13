@@ -1,6 +1,6 @@
 .git
 .DS_Store
+.claude
 Brewfile
 istatmenus
-iterm2
 setup.sh
